@@ -1,0 +1,94 @@
+#!/bin/bash
+# Claude Code statusline — saf stdin, sifir cache, tek jq spawn.
+# Veri tamamen Claude'un stdin'den verdigi JSON'dan gelir (o an aktif hesabin
+# gercek rate limit'leri dahil). Her render'da aninda guncellenir.
+input=$(cat)
+cwd=$(printf '%s' "$input" | jq -r '.workspace.current_dir // .cwd // ""' 2>/dev/null)
+branch=""
+dirty=""
+if [ -n "$cwd" ] && command -v git >/dev/null 2>&1; then
+  gs=$(git -C "$cwd" status --porcelain=v2 --branch 2>/dev/null || true)
+  if [ -n "$gs" ]; then
+    branch=$(printf '%s\n' "$gs" | awk '/^# branch.head /{print $3}')
+    printf '%s\n' "$gs" | grep -q '^[^#]' && dirty=1
+  fi
+fi
+
+printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
+  def lpad: if . < 10 then "0\(.)" else "\(.)" end;
+
+  # $ -> "$1.17" (her zaman 2 ondalik)
+  def money: (. * 100 | round) as $c
+    | "$" + ($c/100|floor|tostring) + "."
+    + (($c % 100) | if . < 10 then "0\(.)" else "\(.)" end);
+
+  # token sayisi -> "56k" / "1.0M"
+  def tok:
+    if . >= 1000000 then
+      (./1000000|floor) as $w
+      | (((. - ($w*1000000)) / 100000) | round) as $d
+      | "\($w).\($d)M"
+    elif . >= 1000 then "\((./1000)|round)k"
+    else "\(.)" end;
+
+  # saniye -> "4h51m" / "1d00h" / "0m"
+  def dur:
+    if . <= 0 then "0m"
+    else
+      (./86400|floor) as $d | ((. % 86400)/3600|floor) as $h | ((. % 3600)/60|floor) as $m
+      | if $d > 0 then "\($d)d\($h|lpad)h"
+        elif $h > 0 then "\($h)h\($m|lpad)m"
+        else "\($m)m" end
+    end;
+
+  # ANSI
+  def reset: "[0m";
+  def dim:   "[2m";
+  def bold:  "[1m";
+  def pctcolor: if . >= 70 then "[31m" elif . >= 30 then "[33m" else "[32m" end;
+  def sep: dim + " │ " + reset;
+
+  def trunc(n): if (. | length) > n then (.[0:n] + "…") else . end;
+
+  # 📁dizin (branch) — branch --arg ile gelir, uzunsa kisaltilir; doluysa sonuna sep ekler
+  def dirseg:
+    ((.workspace.current_dir // .cwd // "") | split("/") | (.[-1] // "")) as $d
+    | (if $d == "" then "" else (bold + "📁" + $d + reset) end)
+    + (if $branch == "" then "" else
+         ((if $dirty == "1" then "[33m" else dim end) + " (" + ($branch | trunc(10)) + ")" + reset) end)
+    | (if . == "" then "" else (. + sep) end);
+
+  # mod gostergeleri: effort + ⚡fast (model+token sonrasi, sona eklenir)
+  def modeflags:
+    (.effort.level // "") + (if .fast_mode then "⚡" else "" end);
+
+  # yuzde -> 10 kutuluk renkli bar
+  def bar:
+    pctcolor as $c
+    | (./10 | round) as $f
+    | (10 - $f) as $e
+    | $c
+      + (if $f > 0 then ("█" * $f) else "" end)
+      + dim + (if $e > 0 then ("░" * $e) else "" end)
+      + reset;
+
+  # bir rate limit segmenti: etiket + bar + % + geri sayim
+  def ratelim(lbl):
+    .used_percentage as $p
+    | (lbl + " " + ($p|bar) + ($p|pctcolor) + "\($p|round)%" + reset
+       + dim + " ⏰" + reset
+       + (((.resets_at // 0) - now) | floor | dur));
+
+  # --- govde ---
+  ( dirseg ) +
+  ( "[33m💰" + ((.cost.total_cost_usd // 0) | money) + reset )
+  + ( if .rate_limits.five_hour then sep + (.rate_limits.five_hour | ratelim("5h")) else "" end )
+  + ( if .rate_limits.seven_day then sep + (.rate_limits.seven_day | ratelim("7d")) else "" end )
+  + ( sep
+      + bold + (.model.display_name // "?") + reset
+      + " " + dim
+      + ((.context_window.total_input_tokens // 0) | tok) + "/"
+      + ((.context_window.context_window_size // 0) | tok)
+      + reset
+      + (modeflags | if . == "" then "" else dim + " " + . + reset end) )
+'

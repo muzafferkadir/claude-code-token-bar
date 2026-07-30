@@ -1,0 +1,8 @@
+# The bash entrypoint and the shell test suite must keep LF endings: a CRLF
+# checkout on Windows breaks the shebang and makes them unrunnable under bash.
+# The PowerShell files are kept LF too so parity diffs stay byte-exact.
+* text=auto eol=lf
+*.ps1 text eol=lf
+*.sh text eol=lf
+claude-code-token-bar text eol=lf
+LICENSE text eol=lf

@@ -25,8 +25,9 @@ printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
   # token sayisi -> "56k" / "1.0M"
   def tok:
     if . >= 1000000 then
-      (./1000000|floor) as $w
-      | (((. - ($w*1000000)) / 100000) | round) as $d
+      ((./100000)|round) as $t
+      | ($t/10|floor) as $w
+      | ($t%10) as $d
       | "\($w).\($d)M"
     elif . >= 1000 then "\((./1000)|round)k"
     else "\(.)" end;
@@ -49,6 +50,8 @@ printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
   def sep: dim + " │ " + reset;
 
   def trunc(n): if (. | length) > n then (.[0:n] + "…") else . end;
+
+  def clamp0_100: if . < 0 then 0 elif . > 100 then 100 else . end;
 
   # 📁dizin (branch) — branch --arg ile gelir, uzunsa kisaltilir; doluysa sonuna sep ekler
   def dirseg:
@@ -74,7 +77,7 @@ printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
 
   # bir rate limit segmenti: etiket + bar + % + geri sayim
   def ratelim(lbl):
-    .used_percentage as $p
+    (.used_percentage | clamp0_100) as $p
     | (lbl + " " + ($p|bar) + ($p|pctcolor) + "\($p|round)%" + reset
        + dim + " ⏰" + reset
        + (((.resets_at // 0) - now) | floor | dur));

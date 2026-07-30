@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq shellcheck
+
+      - name: Install dependencies on macOS
+        if: runner.os == 'macOS'
+        run: brew install jq shellcheck
+
+      - name: Check shell syntax
+        run: bash -n claude-code-token-bar
+
+      - name: Run ShellCheck
+        run: shellcheck claude-code-token-bar test/statusline.sh
+
+      - name: Test output
+        run: bash test/statusline.sh

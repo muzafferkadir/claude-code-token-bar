@@ -25,7 +25,13 @@
 # Native command failures are handled explicitly (git may legitimately fail).
 $PSNativeCommandUseErrorActionPreference = $false
 $ErrorActionPreference = 'Stop'
-Set-StrictMode -Version Latest
+
+# Deliberately no Set-StrictMode here: it costs ~45 ms of the ~390 ms render,
+# by far the largest cost this script controls. Nothing depends on it, because
+# every field read goes through Get-JsonPath rather than bare property access.
+# The test suite does set it and dot-sources this file, so the functions are
+# still verified to be strict-clean — the check happens once in CI instead of
+# on every keystroke.
 
 # The bash/jq original formats numbers with '.' as the decimal separator. Pin
 # the culture so a locale such as tr-TR cannot turn "$1.17" into "$1,17".

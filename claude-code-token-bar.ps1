@@ -136,9 +136,9 @@ function Format-RateLimit($Limit, [string]$Label, [double]$Now) {
     $resetsAt = [double](Get-JsonValueOrDefault (Get-JsonPath $Limit 'resets_at') 0)
     $remaining = [Math]::Floor($resetsAt - $Now)
 
-    $Label + ' ' + (Format-Bar $pct) + (Get-PctColor $pct) +
+    $Label + ' ' + (Format-Bar $pct) + ' ' + (Get-PctColor $pct) +
     "$([long](ConvertTo-JqRound $pct))%" + $RESET +
-    $DIM + ' ⏰' + $RESET + (Format-Duration $remaining)
+    $DIM + ' ⏰ ' + $RESET + (Format-Duration $remaining)
 }
 #endregion
 
@@ -216,7 +216,7 @@ function Build-StatusLine($Json, [double]$Now) {
     $git = Get-GitState $cwd
 
     $dirseg = ''
-    if ($leaf -ne '') { $dirseg += "$BOLD📁$leaf$RESET" }
+    if ($leaf -ne '') { $dirseg += "$BOLD📁 $leaf$RESET" }
     if ($git.Branch -ne '') {
         $branchColor = if ($git.Dirty) { $YELLOW } else { $DIM }
         $dirseg += $branchColor + ' (' + (Format-Trunc $git.Branch 10) + ')' + $RESET
@@ -225,7 +225,7 @@ function Build-StatusLine($Json, [double]$Now) {
 
     # --- 💰session cost ---
     $cost = [double](Get-JsonValueOrDefault (Get-JsonPath $Json 'cost', 'total_cost_usd') 0)
-    $line = $dirseg + $YELLOW + '💰' + (Format-Money $cost) + $RESET
+    $line = $dirseg + $YELLOW + '💰 ' + (Format-Money $cost) + $RESET
 
     # --- rate limit bars ---
     $fiveHour = Get-JsonPath $Json 'rate_limits', 'five_hour'

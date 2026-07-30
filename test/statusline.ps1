@@ -46,51 +46,51 @@ Test-Case 'full render' @'
   "effort": {"level": "high"},
   "fast_mode": true
 }
-'@ '📁project │ 💰$1.17 │ 5h ████░░░░░░36% ⏰0m │ 7d ███████░░░70% ⏰0m │ Sonnet 4 89k/1.0M high⚡'
+'@ '📁 project │ 💰 $1.17 │ 5h ████░░░░░░ 36% ⏰ 0m │ 7d ███████░░░ 70% ⏰ 0m │ Sonnet 4 89k/1.0M high⚡'
 
 Test-Case '1M-boundary rounding carries into whole millions' `
     '{"context_window": {"total_input_tokens": 1999999, "context_window_size": 2000000}}' `
-    '💰$0.00 │ ? 2.0M/2.0M'
+    '💰 $0.00 │ ? 2.0M/2.0M'
 
 Test-Case 'percentage above 100 clamps to 100' `
     '{"rate_limits": {"five_hour": {"used_percentage": 150, "resets_at": 0}}}' `
-    '💰$0.00 │ 5h ██████████100% ⏰0m │ ? 0/0'
+    '💰 $0.00 │ 5h ██████████ 100% ⏰ 0m │ ? 0/0'
 
 Test-Case 'negative percentage clamps to 0' `
     '{"rate_limits": {"five_hour": {"used_percentage": -10, "resets_at": 0}}}' `
-    '💰$0.00 │ 5h ░░░░░░░░░░0% ⏰0m │ ? 0/0'
+    '💰 $0.00 │ 5h ░░░░░░░░░░ 0% ⏰ 0m │ ? 0/0'
 
 Test-Case 'empty stdin skips absent segments but keeps cost + model' `
     '{}' `
-    '💰$0.00 │ ? 0/0'
+    '💰 $0.00 │ ? 0/0'
 
 # --- Rounding: .NET rounds midpoints to even, jq rounds away from zero ---
 
 Test-Case 'bar midpoint rounds away from zero, not to even' `
     '{"rate_limits": {"five_hour": {"used_percentage": 25, "resets_at": 0}}}' `
-    '💰$0.00 │ 5h ███░░░░░░░25% ⏰0m │ ? 0/0'
+    '💰 $0.00 │ 5h ███░░░░░░░ 25% ⏰ 0m │ ? 0/0'
 
 Test-Case 'cost midpoint rounds away from zero, not to even' `
     '{"cost": {"total_cost_usd": 0.125}}' `
-    '💰$0.13 │ ? 0/0'
+    '💰 $0.13 │ ? 0/0'
 
 # --- Windows-specific path handling (the bash version never sees these) ---
 
 Test-Case 'windows drive path resolves to leaf directory' `
     '{"workspace": {"current_dir": "C:\\Users\\Fatih\\project"}}' `
-    '📁project │ 💰$0.00 │ ? 0/0'
+    '📁 project │ 💰 $0.00 │ ? 0/0'
 
 Test-Case 'windows UNC path resolves to leaf directory' `
     '{"workspace": {"current_dir": "\\\\server\\share\\proj"}}' `
-    '📁proj │ 💰$0.00 │ ? 0/0'
+    '📁 proj │ 💰 $0.00 │ ? 0/0'
 
 Test-Case 'windows drive root has no leaf, so segment is dropped' `
     '{"workspace": {"current_dir": "C:\\"}}' `
-    '💰$0.00 │ ? 0/0'
+    '💰 $0.00 │ ? 0/0'
 
 Test-Case 'cwd falls back to .cwd when workspace is absent' `
     '{"cwd": "D:\\work\\api"}' `
-    '📁api │ 💰$0.00 │ ? 0/0'
+    '📁 api │ 💰 $0.00 │ ? 0/0'
 
 # --- Malformed input must never break the status line ---
 
@@ -102,7 +102,7 @@ Test-Case 'empty stdin renders nothing and exits cleanly' '' ''
 $future = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 86400 + (7 * 3600) + 120
 Test-Case 'countdown over a day renders as XdYYh' `
     "{`"rate_limits`": {`"five_hour`": {`"used_percentage`": 0, `"resets_at`": $future}}}" `
-    '💰$0.00 │ 5h ░░░░░░░░░░0% ⏰1d07h │ ? 0/0'
+    '💰 $0.00 │ 5h ░░░░░░░░░░ 0% ⏰ 1d07h │ ? 0/0'
 
 # --- Locale: tr-TR uses ',' as the decimal separator ---
 # Run in-process so the culture actually applies to the rendering code.
@@ -113,7 +113,7 @@ try {
     [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo('tr-TR')
     $json = '{"cost": {"total_cost_usd": 1.17}, "context_window": {"total_input_tokens": 1500000, "context_window_size": 2000000}}' | ConvertFrom-Json
     $actual = ConvertTo-PlainText (Build-StatusLine $json 0)
-    $expected = '💰$1.17 │ ? 1.5M/2.0M'
+    $expected = '💰 $1.17 │ ? 1.5M/2.0M'
     if ($actual -cne $expected) {
         [Console]::Error.WriteLine("FAIL: tr-TR locale must not change number formatting`nexpected: $expected`nactual:   $actual")
         $failures++

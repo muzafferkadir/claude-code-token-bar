@@ -56,7 +56,7 @@ printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
   # 📁dizin (branch) — branch --arg ile gelir, uzunsa kisaltilir; doluysa sonuna sep ekler
   def dirseg:
     ((.workspace.current_dir // .cwd // "") | split("/") | (.[-1] // "")) as $d
-    | (if $d == "" then "" else (bold + "📁" + $d + reset) end)
+    | (if $d == "" then "" else (bold + "📁 " + $d + reset) end)
     + (if $branch == "" then "" else
          ((if $dirty == "1" then "[33m" else dim end) + " (" + ($branch | trunc(10)) + ")" + reset) end)
     | (if . == "" then "" else (. + sep) end);
@@ -78,13 +78,13 @@ printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
   # bir rate limit segmenti: etiket + bar + % + geri sayim
   def ratelim(lbl):
     (.used_percentage | clamp0_100) as $p
-    | (lbl + " " + ($p|bar) + ($p|pctcolor) + "\($p|round)%" + reset
-       + dim + " ⏰" + reset
+    | (lbl + " " + ($p|bar) + " " + ($p|pctcolor) + "\($p|round)%" + reset
+       + dim + " ⏰ " + reset
        + (((.resets_at // 0) - now) | floor | dur));
 
   # --- govde ---
   ( dirseg ) +
-  ( "[33m💰" + ((.cost.total_cost_usd // 0) | money) + reset )
+  ( "[33m💰 " + ((.cost.total_cost_usd // 0) | money) + reset )
   + ( if .rate_limits.five_hour then sep + (.rate_limits.five_hour | ratelim("5h")) else "" end )
   + ( if .rate_limits.seven_day then sep + (.rate_limits.seven_day | ratelim("7d")) else "" end )
   + ( sep

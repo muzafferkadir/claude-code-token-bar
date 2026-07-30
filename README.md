@@ -13,7 +13,7 @@ script for Windows.
 Not affiliated with or endorsed by Anthropic.
 
 ```
-📁 dir (branch) │ 💰 $session │ 5h ████░░░░░░ 36% ⏰2d07h │ 7d ███░░░░░░░ 30% ⏰5d │ Model 89k/1.0M high⚡
+📁 dir (branch) │ 💰 $session │ 5h ████░░░░░░ 36% ⏰ 2d07h │ 7d ███░░░░░░░ 30% ⏰ 5d │ Model 89k/1.0M high⚡
 ```
 
 ## What it shows

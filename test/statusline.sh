@@ -37,20 +37,20 @@ check "full render" \
     "effort": {"level": "high"},
     "fast_mode": true
   }' \
-  '📁project │ 💰$1.17 │ 5h ████░░░░░░36% ⏰0m │ 7d ███████░░░70% ⏰0m │ Sonnet 4 89k/1.0M high⚡'
+  '📁 project │ 💰 $1.17 │ 5h ████░░░░░░ 36% ⏰ 0m │ 7d ███████░░░ 70% ⏰ 0m │ Sonnet 4 89k/1.0M high⚡'
 
 check "1M-boundary rounding carries into whole millions" \
   '{"context_window": {"total_input_tokens": 1999999, "context_window_size": 2000000}}' \
-  '💰$0.00 │ ? 2.0M/2.0M'
+  '💰 $0.00 │ ? 2.0M/2.0M'
 
 check "percentage above 100 clamps to 100" \
   '{"rate_limits": {"five_hour": {"used_percentage": 150, "resets_at": 0}}}' \
-  '💰$0.00 │ 5h ██████████100% ⏰0m │ ? 0/0'
+  '💰 $0.00 │ 5h ██████████ 100% ⏰ 0m │ ? 0/0'
 
 check "negative percentage clamps to 0" \
   '{"rate_limits": {"five_hour": {"used_percentage": -10, "resets_at": 0}}}' \
-  '💰$0.00 │ 5h ░░░░░░░░░░0% ⏰0m │ ? 0/0'
+  '💰 $0.00 │ 5h ░░░░░░░░░░ 0% ⏰ 0m │ ? 0/0'
 
 check "empty stdin skips absent segments but keeps cost + model" \
   '{}' \
-  '💰$0.00 │ ? 0/0'
+  '💰 $0.00 │ ? 0/0'

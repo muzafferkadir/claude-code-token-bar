@@ -14,7 +14,33 @@ if [ -n "$cwd" ] && command -v git >/dev/null 2>&1; then
   fi
 fi
 
-printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
+# prompt cache warm/cold (extension mantigi): son assistant mesajinin timestamp'i anchor,
+# ttl = cache_creation.ephemeral_1h>0 -> 1h, ephemeral_5m>0 -> 5m (cache token yoksa onceki ttl korunur),
+# compaction anchor'dan sonraysa cold. cikti: "warm:<dk>" | "cold" | ""
+cache=""
+tp=$(printf '%s' "$input" | jq -r '.transcript_path // ""' 2>/dev/null)
+if [ -n "$tp" ] && [ -r "$tp" ]; then
+  cache=$(tail -n 400 "$tp" 2>/dev/null | jq -rs '
+    def ts: (.timestamp // "") | if . == "" then null else (sub("\\.[0-9]+Z$"; "Z") | try fromdateiso8601 catch null) end;
+    ( [ to_entries[] | select(.value.isCompactSummary == true or .value.type == "summary") | .key ] | last ) as $ci
+    | ( reduce (to_entries[] | select(.value.type == "assistant" and .value.message.usage != null)) as $e
+          ({anchor:null, ttl:null, idx:null};
+           ($e.value.message.usage) as $u
+           | (($u.cache_read_input_tokens // 0) + ($u.cache_creation_input_tokens // 0)) as $c
+           | .anchor = ($e.value | ts) | .idx = $e.key
+           | if $c > 0 then
+               (if ($u.cache_creation.ephemeral_1h_input_tokens // 0) > 0 then .ttl = 3600
+                elif ($u.cache_creation.ephemeral_5m_input_tokens // 0) > 0 then .ttl = 300
+                else . end)
+             else . end) ) as $s
+    | if $ci != null and ($s.idx == null or $ci > $s.idx) then "cold"
+      elif $s.anchor == null or $s.ttl == null then ""
+      else ([ $s.ttl, ($s.anchor + $s.ttl - now) ] | min) as $left
+        | if $left > 0 then "warm:\(($left/60)|ceil)" else "cold" end
+      end' 2>/dev/null || true)
+fi
+
+printf '%s' "$input" | jq -rj --arg cache "$cache" --arg branch "$branch" --arg dirty "$dirty" '
   def lpad: if . < 10 then "0\(.)" else "\(.)" end;
 
   # $ -> "$1.17" (her zaman 2 ondalik)
@@ -94,4 +120,7 @@ printf '%s' "$input" | jq -rj --arg branch "$branch" --arg dirty "$dirty" '
       + ((.context_window.context_window_size // 0) | tok)
       + reset
       + (modeflags | if . == "" then "" else dim + " " + . + reset end) )
+  + ( if ($cache | startswith("warm:")) then sep + "[32m🔥" + ($cache | ltrimstr("warm:")) + "m" + reset
+      elif $cache == "cold" then sep + dim + "❄️cold" + reset
+      else "" end )
 '

@@ -54,3 +54,50 @@ check "negative percentage clamps to 0" \
 check "empty stdin skips absent segments but keeps cost + model" \
   '{}' \
   '💰$0.00 │ ? 0/0'
+
+# --- prompt cache warmth (transcript_path) ---
+tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+now_iso=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
+
+printf '%s\n' \
+  '{"type":"user","timestamp":"'"$now_iso"'","message":{"role":"user","content":"hi"}}' \
+  '{"type":"assistant","timestamp":"'"$now_iso"'","message":{"usage":{"input_tokens":10,"cache_read_input_tokens":500,"cache_creation_input_tokens":20,"cache_creation":{"ephemeral_1h_input_tokens":20,"ephemeral_5m_input_tokens":0}}}}' \
+  > "$tmp/warm1h.jsonl"
+check "cache warm 1h shows 60m" \
+  '{"transcript_path":"'"$tmp/warm1h.jsonl"'"}' \
+  '💰$0.00 │ ? 0/0 │ 🔥60m'
+
+printf '%s\n' \
+  '{"type":"assistant","timestamp":"'"$now_iso"'","message":{"usage":{"input_tokens":10,"cache_read_input_tokens":500,"cache_creation_input_tokens":20,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":20}}}}' \
+  > "$tmp/warm5m.jsonl"
+check "cache warm 5m shows 5m" \
+  '{"transcript_path":"'"$tmp/warm5m.jsonl"'"}' \
+  '💰$0.00 │ ? 0/0 │ 🔥5m'
+
+printf '%s\n' \
+  '{"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"usage":{"cache_read_input_tokens":500,"cache_creation_input_tokens":0,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":0}}}}' \
+  '{"type":"assistant","timestamp":"2020-01-01T00:00:01.000Z","message":{"usage":{"cache_read_input_tokens":500,"cache_creation_input_tokens":0}}}' \
+  > "$tmp/expired.jsonl"
+# ttl never learned -> unknown -> no segment
+check "cache ttl unknown shows nothing" \
+  '{"transcript_path":"'"$tmp/expired.jsonl"'"}' \
+  '💰$0.00 │ ? 0/0'
+
+printf '%s\n' \
+  '{"type":"assistant","timestamp":"2020-01-01T00:00:00.000Z","message":{"usage":{"cache_read_input_tokens":500,"cache_creation_input_tokens":20,"cache_creation":{"ephemeral_5m_input_tokens":20}}}}' \
+  > "$tmp/cold.jsonl"
+check "cache expired shows cold" \
+  '{"transcript_path":"'"$tmp/cold.jsonl"'"}' \
+  '💰$0.00 │ ? 0/0 │ ❄️cold'
+
+printf '%s\n' \
+  '{"type":"assistant","timestamp":"'"$now_iso"'","message":{"usage":{"cache_read_input_tokens":500,"cache_creation_input_tokens":20,"cache_creation":{"ephemeral_1h_input_tokens":20}}}}' \
+  '{"type":"user","isCompactSummary":true,"timestamp":"'"$now_iso"'","message":{"content":"summary"}}' \
+  > "$tmp/compact.jsonl"
+check "compaction after last assistant shows cold" \
+  '{"transcript_path":"'"$tmp/compact.jsonl"'"}' \
+  '💰$0.00 │ ? 0/0 │ ❄️cold'
+
+check "missing transcript skips cache segment" \
+  '{"transcript_path":"/nonexistent/x.jsonl"}' \
+  '💰$0.00 │ ? 0/0'

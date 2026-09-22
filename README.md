@@ -3,14 +3,14 @@
 A fast, zero-dependency status line for [Claude Code](https://claude.com/claude-code).
 
 It reads Claude Code's status line JSON from **stdin only** — no background process,
-no cache, no `ccusage`/`cs`/`node` spawn. Two `jq` passes render everything, so it
+no daemon, no `ccusage`/`cs`/`node` spawn. Three `jq` passes render everything, so it
 stays fast on every prompt and always reflects the **currently authenticated account's
 real rate limits** (from Anthropic's official headers, Claude Code ≥ 2.1.80).
 
 Not affiliated with or endorsed by Anthropic.
 
 ```
-📁 dir (branch) │ 💰 $session │ 5h ████░░░░░░ 36% ⏰2d07h │ 7d ███░░░░░░░ 30% ⏰5d │ Model 89k/1.0M high⚡
+📁 dir (branch) │ 💰 $session │ 5h ████░░░░░░ 36% ⏰2d07h │ 7d ███░░░░░░░ 30% ⏰5d │ Model 89k/1.0M high⚡ │ 🔥47m
 ```
 
 ## What it shows
@@ -23,6 +23,11 @@ Not affiliated with or endorsed by Anthropic.
   outside `0–100` (malformed upstream data) are clamped before rendering.
 - **Model ctx/limit** — model display name + context window used / total.
 - **effort / ⚡** — current `/effort` level and fast-mode indicator.
+- **🔥Nm / ❄️cold** — prompt-cache warmth, same logic as the Claude Code VS Code
+  extension: the last assistant message in `transcript_path` is the anchor, TTL comes
+  from `usage.cache_creation` (`ephemeral_1h` → 60m, `ephemeral_5m` → 5m, otherwise the
+  previous TTL is kept), a compaction after the anchor means cold. Shown only when a
+  TTL is known.
 
 Any segment whose data is absent from stdin is silently dropped.
 
@@ -31,7 +36,7 @@ Any segment whose data is absent from stdin is silently dropped.
 - **`jq`** (required)
 - **`git`** (optional — only for the branch segment; skipped if not installed)
 
-No Node.js, no `ccusage`, no `cs`. The tool spawns at most `2× jq + 1× git` per render.
+No Node.js, no `ccusage`, no `cs`. The tool spawns at most `3× jq + 1× git + 1× tail` per render.
 
 ## Install
 
